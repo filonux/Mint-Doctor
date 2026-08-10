@@ -13,7 +13,7 @@ Autoreparador de terminal para Linux Mint 22.3 "Zena" con Cinnamon: detecta, exp
 ## Índice
 
 - [¿Qué es Mint-Doctor?](#qué-es-mint-doctor)
-- [La ventaja principal](#la-ventaja-principal)
+- [Ventaja principal](#ventaja-principal)
 - [Instalación](#instalación)
 - [Comandos](#comandos)
 - [Uso](#uso)
