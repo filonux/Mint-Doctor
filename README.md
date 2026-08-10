@@ -13,7 +13,7 @@ Autoreparador de terminal para Linux Mint 22.3 "Zena" con Cinnamon: detecta, exp
 ## Índice
 
 - [¿Qué es Mint-Doctor?](#qué-es-mint-doctor)
-- [Ventaja principal](#ventaja-principal)
+- [La ventaja principal](#la-ventaja-principal)
 - [Instalación](#instalación)
 - [Comandos](#comandos)
 - [Uso](#uso)
@@ -31,7 +31,7 @@ No es un limpiador genérico de los que prometen dejar el PC "como nuevo". Se pa
 
 <img width="842" height="593" alt="mint-doctor-menu" src="https://github.com/user-attachments/assets/afad29bd-0504-458c-beb2-9c902d8dd4f2" />
 
-## La ventaja principal
+## Ventaja principal
 
 Cualquier script de "mantenimiento" sabe vaciar una papelera o lanzar `apt autoremove`. Lo que distingue a Mint-Doctor es que conoce defectos *documentados* de Mint 22.3 en concreto, entre otros:
 
