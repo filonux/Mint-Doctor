@@ -29,6 +29,8 @@ Mint-Doctor es un script de terminal que revisa tu Linux Mint 22.3 con Cinnamon 
 
 No es un limpiador genérico de los que prometen dejar el PC "como nuevo". Se parece más a la checklist de un mecánico, escrita a partir de las propias notas de versión de Mint y de los problemas que se repiten en su foro oficial: repasa un punto, te explica qué encontró y por qué importa, y solo actúa si tú lo confirmas.
 
+<img width="842" height="593" alt="mint-doctor-menu" src="https://github.com/user-attachments/assets/afad29bd-0504-458c-beb2-9c902d8dd4f2" />
+
 ## La ventaja principal
 
 Cualquier script de "mantenimiento" sabe vaciar una papelera o lanzar `apt autoremove`. Lo que distingue a Mint-Doctor es que conoce defectos *documentados* de Mint 22.3 en concreto, entre otros:
