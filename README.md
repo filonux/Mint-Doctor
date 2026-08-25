@@ -1,4 +1,4 @@
-<img src="assets/icon.png" alt="Mint-Doctor" width="96" height="96">
+<img src="assets/icon.png" alt="Mint-Doctor" width="256" height="256">
 
 # Mint-Doctor
 
