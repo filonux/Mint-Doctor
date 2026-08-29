@@ -53,7 +53,7 @@ A eso se suma un diseño pensado para no romper nada por accidente:
 ## Instalación
 
 ```bash
-git clone https://github.com/filonux/mint-doctor.git
+git clone https://github.com/filonux/Mint-Doctor.git
 cd mint-doctor
 chmod +x script/mint-doctor.sh
 ./script/mint-doctor.sh
@@ -114,6 +114,7 @@ Mint-Doctor está en español: menú, mensajes, avisos y este README. No hay ver
 - [ ] Traducción completa del script (menús, mensajes, ayuda) al inglés
 - [ ] README en inglés
 - [ ] Forma de elegir idioma sin tocar el script (detección del sistema o variable de entorno)
+- [ ] Paquete `.deb` para instalar con un doble clic, sin pasar por `git clone`
 
 Si te interesaría usarlo en inglés, dilo en un issue — es la señal que hace falta para priorizarlo.
 
@@ -127,4 +128,4 @@ GPLv3. Consulta el fichero [LICENSE](LICENSE).
 
 ---
 
-Hecho por **Filonux**.
+Hecho por **[Filonux](https://github.com/filonux)**.
