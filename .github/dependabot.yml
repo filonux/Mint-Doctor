@@ -1,0 +1,15 @@
+# Keeps the GitHub Actions used by the workflows up to date. The actions are
+# pinned to full commit SHAs (with the version in a trailing comment) for supply
+# chain safety; Dependabot updates both the SHA and the comment.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "ci"
+    groups:
+      github-actions:
+        patterns:
+          - "*"

@@ -1,0 +1,85 @@
+name: Release
+
+# Publishes a GitHub release when a version tag is pushed, for example:
+#
+#   git tag v1.14.2
+#   git push origin v1.14.2
+#
+# Safety nets, in order:
+#   1. The whole CI workflow (ShellCheck + test suite) must pass first.
+#   2. The tag must match SCRIPT_VERSION inside script/mint-doctor.sh, so a
+#      release can never ship with a different version than the one it announces.
+#
+# Tags with a suffix (v1.15.0-rc1) are published as pre-releases.
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+*"
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  publish:
+    name: Publish release
+    needs: ci
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write # create the release and upload its assets
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ github.ref_name }} # passed through the environment, never pasted into the shell code
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check that the tag matches the script version
+        shell: bash
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Tag \"$TAG\" is not a valid version tag (expected vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-suffix)."
+            exit 1
+          fi
+
+          reported="$(MINT_DOCTOR_LANG=en bash script/mint-doctor.sh --version)"
+          script_version="$(sed -n 's/^Mint-Doctor v\([^ ]*\) .*/\1/p' <<<"$reported")"
+
+          if [[ -z "$script_version" ]]; then
+            echo "::error::Could not read the version from \"script/mint-doctor.sh --version\" (got: $reported)."
+            exit 1
+          fi
+
+          if [[ "${TAG#v}" != "$script_version" ]]; then
+            echo "::error::Tag $TAG does not match the script version $script_version. Update SCRIPT_VERSION in script/mint-doctor.sh or push the right tag."
+            exit 1
+          fi
+
+          echo "Tag $TAG matches script version $script_version."
+
+      - name: Create or update the GitHub release
+        shell: bash
+        run: |
+          mkdir dist
+          cp script/mint-doctor.sh dist/mint-doctor.sh
+          (cd dist && sha256sum mint-doctor.sh > SHA256SUMS)
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            # Re-running the workflow for an existing release only refreshes its files.
+            gh release upload "$TAG" dist/mint-doctor.sh dist/SHA256SUMS --clobber
+          else
+            args=(--title "Mint-Doctor $TAG" --generate-notes --verify-tag)
+            if [[ "$TAG" == *-* ]]; then
+              args+=(--prerelease)
+            fi
+            gh release create "$TAG" dist/mint-doctor.sh dist/SHA256SUMS "${args[@]}"
+          fi

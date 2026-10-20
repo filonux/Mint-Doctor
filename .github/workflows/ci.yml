@@ -1,0 +1,166 @@
+name: CI
+
+# Runs the project's own checks (ShellCheck + tests/test.sh) on every pull request
+# and on every push to the main branch.
+#
+# It also runs once a week: the test suite depends on the operating system tools
+# (runuser, script, locale, ...), so this catches breakage caused by GitHub
+# updating the runner image even when nobody has pushed anything.
+#
+# release.yml reuses this workflow (workflow_call) as a gate before publishing.
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+  schedule:
+    - cron: "23 5 * * 1" # Mondays, 05:23 UTC
+
+permissions:
+  contents: read
+
+concurrency:
+  # Only pull requests share a group, so a new push to the same PR cancels the older run.
+  # Every other run (push, tag, schedule, manual) gets its own group on purpose: with a
+  # shared group GitHub would also drop the *pending* run when a newer one arrives, and a
+  # commit on main could end up without any CI result.
+  group: ci-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lint:
+    name: Lint (ShellCheck and file hygiene)
+    # Pinned to the Ubuntu release Linux Mint 22.x is based on (24.04 "noble"),
+    # instead of "ubuntu-latest", so the checks do not change under our feet.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Syntax, shebang and line endings
+        shell: bash
+        run: |
+          status=0
+
+          for f in script/mint-doctor.sh tests/test.sh tests/run-tests.sh; do
+            if ! bash -n "$f"; then
+              echo "::error file=$f::Bash syntax error"
+              status=1
+            fi
+            if [[ "$(head -n 1 "$f")" != '#!'* ]]; then
+              echo "::error file=$f,line=1::Missing shebang on the first line"
+              status=1
+            fi
+          done
+
+          # CRLF line endings break shell scripts on Linux ("bash\r: No such file or directory").
+          while IFS= read -r -d '' f; do
+            if grep -Iq $'\r' "$f"; then
+              echo "::error file=$f::Windows (CRLF) line endings found; please use LF"
+              status=1
+            fi
+          done < <(git ls-files -z -- '*.sh' '*.yml' '*.yaml')
+
+          exit "$status"
+
+      - name: Install ShellCheck if the runner image does not ship it
+        shell: bash
+        run: |
+          if ! command -v shellcheck >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq shellcheck
+          fi
+          shellcheck --version
+
+      - name: ShellCheck (errors fail the build, warnings are annotated)
+        shell: bash
+        run: |
+          # Policy: ShellCheck *errors* block the pull request. *Warnings* are shown as
+          # annotations but do not block, so a newer ShellCheck on the runner image cannot
+          # break the build by itself; the code is kept warning-free by review (see
+          # CONTRIBUTING.md). Info and style notes are not reported (--severity=warning).
+          # Exit status 1 only means "findings were reported" and is handled below; 2 or
+          # more means ShellCheck itself could not run (missing file, bad option), which
+          # must not look like a clean result.
+          rc=0
+          shellcheck --severity=warning --format=gcc \
+            script/mint-doctor.sh tests/test.sh tests/run-tests.sh \
+            > "$RUNNER_TEMP/shellcheck.txt" || rc=$?
+          if ((rc > 1)); then
+            echo "::error::ShellCheck could not run (exit status $rc)."
+            exit 1
+          fi
+
+          errors=0
+          warnings=0
+          while IFS= read -r line; do
+            if [[ "$line" =~ ^([^:]+):([0-9]+):([0-9]+):\ (error|warning):\ (.*)$ ]]; then
+              file="${BASH_REMATCH[1]}"
+              row="${BASH_REMATCH[2]}"
+              col="${BASH_REMATCH[3]}"
+              level="${BASH_REMATCH[4]}"
+              msg="${BASH_REMATCH[5]//%/%25}"
+              echo "::$level file=$file,line=$row,col=$col,title=ShellCheck::$msg"
+              if [[ "$level" == error ]]; then errors=$((errors + 1)); else warnings=$((warnings + 1)); fi
+            fi
+          done < "$RUNNER_TEMP/shellcheck.txt"
+
+          {
+            echo "## ShellCheck"
+            echo
+            echo "- Errors (blocking): **$errors**"
+            echo "- Warnings (informational): **$warnings**"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if ((errors > 0)); then
+            echo "ShellCheck reported $errors error(s)." >&2
+            exit 1
+          fi
+
+  test:
+    name: Test suite (Ubuntu 24.04)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The wrapper copies the repository to a world-readable directory and runs
+      # tests/test.sh as root. See the comments in the script for the reasons.
+      - name: Run tests/test.sh
+        shell: bash # "bash -eo pipefail": a failing suite fails the step even through `tee`
+        run: bash tests/run-tests.sh 2>&1 | tee "$RUNNER_TEMP/test.log"
+
+      - name: Test report
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          log="$RUNNER_TEMP/test.log"
+          [[ -f "$log" ]] || exit 0
+
+          {
+            echo "## Test suite"
+            echo
+            echo "Runner: $(. /etc/os-release && echo "$PRETTY_NAME"), $(bash --version | head -n 1)"
+            echo
+            if grep -qE '^(not )?ok - ' "$log"; then
+              echo "| Result | Test |"
+              echo "|:--:|:--|"
+              grep -E '^(not )?ok - ' "$log" | sed -E 's/^ok - (.*)$/| ✅ | \1 |/; s/^not ok - (.*)$/| ❌ | \1 |/'
+              echo
+              grep -E '^[0-9]+ passed, [0-9]+ failed' "$log" | sed -E 's/^(.*)$/**\1**/' || true
+            else
+              echo "No test results were produced; see the log of the \"Run tests/test.sh\" step."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # One annotation per failed test, so failures are visible without opening the log.
+          grep -E '^not ok - ' "$log" | while IFS= read -r line; do
+            echo "::error title=Test failed::${line#not ok - }"
+          done || true
