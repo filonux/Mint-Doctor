@@ -5,4 +5,3 @@ Mint-Doctor is a locally-run script: if you find a genuine security issue or vul
 ## How to report it
 
 Write to **filonux@proton.me** with a description of the problem and, if possible, the steps to reproduce it.
-
