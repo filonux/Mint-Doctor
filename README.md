@@ -135,8 +135,10 @@ The project includes a regression suite for syntax, locale detection, both inter
 Run it from the project root:
 
 ```bash
-./tests/test.sh
+bash tests/run-tests.sh
 ```
+
+A few end-to-end tests run the script as the unprivileged user `nobody`, which requires root and a copy of the project that user can read. That wrapper takes care of both: it copies the project to a temporary directory and uses `sudo` if you are not root (running `./tests/test.sh` directly as a regular user makes those tests fail). The same suite runs on every pull request through GitHub Actions.
 
 The suite uses Bash, Python 3 and the standard Linux tools already available in a typical Mint installation. It never applies a real repair: the end-to-end pass always runs in `--dry-run`.
 
