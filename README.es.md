@@ -133,8 +133,10 @@ El proyecto incluye una batería de regresión para sintaxis, detección del loc
 Puedes lanzarla desde la raíz del proyecto:
 
 ```bash
-./tests/test.sh
+bash tests/run-tests.sh
 ```
+
+Algunas pruebas de extremo a extremo ejecutan el script como el usuario sin privilegios `nobody`, lo que requiere root y una copia del proyecto que ese usuario pueda leer. Ese script se encarga de ambas cosas: copia el proyecto a un directorio temporal y usa `sudo` si no eres root (si lanzas `./tests/test.sh` directamente como usuario normal, esas pruebas fallan). La misma batería se ejecuta en cada pull request mediante GitHub Actions.
 
 La batería usa Bash, Python 3 y las herramientas estándar de Linux que suele tener una instalación normal de Mint. Nunca aplica una reparación real: la prueba de extremo a extremo usa siempre `--dry-run`.
 
