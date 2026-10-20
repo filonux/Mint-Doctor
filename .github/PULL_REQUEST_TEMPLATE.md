@@ -19,7 +19,9 @@ Describe which distro/environment you tested it on and which cases you verified
 ## Checklist
 
 - [ ] I manually tested the script after my changes and it still works
+- [ ] The test suite passes (`bash tests/run-tests.sh`; CI also runs it on this PR)
 - [ ] I ran `shellcheck` and didn't introduce new warnings
+- [ ] If I added or changed user-facing messages, I added their English translation (the test suite checks this)
 - [ ] The comments I added explain the *why*, not just repeat the obvious *what*
 - [ ] I updated the README if the change affects usage or requirements
 - [ ] I didn't include generated files, temporary files, or credentials
