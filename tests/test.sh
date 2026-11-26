@@ -156,7 +156,7 @@ direct_ui_translation_test() {
 }
 
 dynamic_translation_test() {
-    MINT_DOCTOR_TEST_MODE=1 MINT_DOCTOR_LANG=en bash -c '
+    MINT_DOCTOR_TEST_MODE=1 MINT_DOCTOR_LANG=en bash -s "$SCRIPT" <<'EOS'
         source "$1"
         assert_t() { local out; out=$(t "$1"); [[ "$out" == *"$2"* ]] || { echo "expected [$2] in [$out]" >&2; return 1; }; }
         assert_t "Esta acción necesita permisos de administrador (comprobar si los archivos de bloqueo de apt/dpkg siguen en uso)." "check whether apt/dpkg lock files are still in use"
@@ -166,6 +166,8 @@ dynamic_translation_test() {
         assert_t "Hay 2 servicio(s) systemd en estado \"failed\":" "There are 2 systemd service(s)"
         assert_t "Hay 3 acceso(s) directo(s) en el escritorio sin marcar como confiables:" "There are 3 desktop shortcut(s)"
         assert_t "Salud de la batería (BAT0): 91% de su capacidad de fábrica." "Battery health (BAT0): 91% of its factory capacity."
+        out=$(t "Estas 'spices' de terceros no declaran soporte para Cinnamon 6.0 (metadata.json):")
+        [[ "$out" == "These third-party Cinnamon 'spices' do not declare support for Cinnamon 6.0 (metadata.json):" ]] || { echo "spices translation: [$out]" >&2; return 1; }
         assert_t "La instantánea más reciente tiene 5 días. Si esperabas copias más frecuentes," "The most recent snapshot is 5 days old."
         assert_t "La instantánea más reciente tiene 5 día(s)." "The most recent snapshot is 5 days old."
         assert_t "Estos módulos DKMS no están instalados para el kernel en uso (6.18.0):" "These DKMS modules are not installed for the current kernel"
@@ -181,7 +183,7 @@ dynamic_translation_test() {
         assert_t "Si alguna de esas líneas sí publica paquetes para \"noble\", edítala a" "If any of those lines actually publish packages for \"noble\""
         assert_t "El repositorio OFICIAL de Mint en /etc/apt/sources.list.d/official.list usa el nombre en clave \"noble\"," "The OFFICIAL Mint repository in /etc/apt/sources.list.d/official.list uses the codename \"noble\"," 
         assert_t "Aviso: no se ha podido crear el registro; esta sesión continúa sin guardar registro." "Warning: could not create the log; continuing without a log."
-    ' bash "$SCRIPT"
+EOS
 }
 
 dry_run_test() {

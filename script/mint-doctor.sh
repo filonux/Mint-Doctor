@@ -135,7 +135,12 @@ t() {
             local battery_tail="${text#Salud de la batería (}"
             battery_tail="${battery_tail/ de su capacidad de fábrica./ of its factory capacity.}"
             printf 'Battery health (%s' "$battery_tail"; return ;;
-        "Estas 'spices' de terceros no declaran soporte para Cinnamon "*) printf "These third-party Cinnamon 'spices' do not declare support for Cinnamon %s" "${text#Estas 'spices' de terceros no declaran soporte para Cinnamon }"; return ;;
+        "Estas 'spices' de terceros no declaran soporte para Cinnamon "*)
+            # Quoting the pattern is required: an unquoted ' inside ${text#...}
+            # is consumed as a quote character and the prefix never matches.
+            local spices_prefix="Estas 'spices' de terceros no declaran soporte para Cinnamon "
+            printf "These third-party Cinnamon 'spices' do not declare support for Cinnamon %s" "${text#"$spices_prefix"}"
+            return ;;
         "La instantánea más reciente tiene "*" días. Si esperabas copias más frecuentes,"*)
             local snapshot_tail="${text#La instantánea más reciente tiene }"
             snapshot_tail="${snapshot_tail/ días. Si esperabas copias más frecuentes,/ days old. If you expected more frequent backups,}"
