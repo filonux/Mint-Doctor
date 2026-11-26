@@ -96,6 +96,29 @@ yes_no_test() {
     ! MINT_DOCTOR_TEST_MODE=1 MINT_DOCTOR_LANG=es bash -c 'source "$1"; printf "\n" | _ask_yes_no_loop "¿Continuar?"' bash "$SCRIPT"
 }
 
+stale_codename_test() {
+    MINT_DOCTOR_TEST_MODE=1 bash -c '
+        source "$1"
+        [[ "$(codename_version jammy)" == 2204 ]] || exit 1
+        [[ "$(codename_version virginia)" == 2103 ]] || exit 1
+        [[ "$(codename_version inventado)" == 0 ]] || exit 1
+        [[ "$(codename_family jammy)" == ubuntu ]] || exit 1
+        [[ "$(codename_family virginia)" == mint ]] || exit 1
+        [[ -z "$(codename_family inventado)" ]] || exit 1
+        # En Mint 21.3 (virginia/jammy) lo actual no puede marcarse como viejo:
+        codename_before focal virginia || exit 1
+        codename_before victoria virginia || exit 1
+        ! codename_before jammy virginia || exit 1
+        ! codename_before virginia virginia || exit 1
+        ! codename_before zena virginia || exit 1
+        ! codename_before focal inventado || exit 1
+        # Y en Mint 22.3 (zena/noble) sí se marcan los restos de 21.x:
+        codename_before virginia zena || exit 1
+        codename_before jammy noble || exit 1
+        ! codename_before zena zena || exit 1
+    ' bash "$SCRIPT"
+}
+
 catalog_translation_test() {
     python3 - "$SCRIPT" <<'PY'
 import re, subprocess, sys
@@ -177,7 +200,7 @@ dynamic_translation_test() {
         assert_t "Y /boot solo tiene 120MB libres: causa muy habitual de que un" "/boot has only 120MB free"
         assert_t "pkexec (/usr/bin/pkexec) ha perdido el bit setuid o su propietario no es root." "pkexec (/usr/bin/pkexec) has lost its setuid bit"
         assert_t "sudo (/usr/bin/sudo) ha perdido su bit setuid. Ni este script ni sudo pueden arreglarlo:" "sudo (/usr/bin/sudo) has lost its setuid bit"
-        assert_t "anterior de Mint/Ubuntu (esta es Mint 22.3 \"Zena\", base Ubuntu \"noble\"):" "earlier Mint/Ubuntu release"
+        assert_t "anterior de Mint/Ubuntu (Mint \"virginia\", base Ubuntu \"jammy\"):" "earlier Mint/Ubuntu release"
         assert_t "Si alguna de esas líneas sí publica paquetes para \"noble\", edítala a" "If any of those lines actually publish packages for \"noble\""
         assert_t "El repositorio OFICIAL de Mint en /etc/apt/sources.list.d/official.list usa el nombre en clave \"noble\"," "The OFFICIAL Mint repository in /etc/apt/sources.list.d/official.list uses the codename \"noble\"," 
         assert_t "Aviso: no se ha podido crear el registro; esta sesión continúa sin guardar registro." "Warning: could not create the log; continuing without a log."
@@ -280,6 +303,7 @@ run_test 'help and version in both languages' help_version_test
 run_test 'root check happens before logging' root_logging_test
 run_test 'CLI language overrides and fallback' cli_language_test
 run_test 'yes/no parser accepts both Spanish and English' yes_no_test
+run_test 'codename ordering only flags older releases' stale_codename_test
 run_test 'all static UI strings have English translations' catalog_translation_test
 run_test 'repair descriptions have English translations' run_step_catalog_test
 run_test 'direct UI strings are translated completely' direct_ui_translation_test

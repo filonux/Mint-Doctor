@@ -158,9 +158,7 @@ t() {
             sudo_tail="${sudo_tail/ ha perdido su bit setuid. Ni este script ni sudo pueden arreglarlo:/ has lost its setuid bit. Neither this script nor sudo can fix it:}"
             printf 'sudo (%s' "$sudo_tail"; return ;;
         "anterior de Mint/Ubuntu ("*)
-            local release_tail="${text#anterior de Mint/Ubuntu (}"
-            release_tail="${release_tail/esta es Mint 22.3 /this is Mint 22.3 }"
-            printf 'earlier Mint/Ubuntu release (%s' "$release_tail"; return ;;
+            printf 'earlier Mint/Ubuntu release (%s' "${text#anterior de Mint/Ubuntu (}"; return ;;
         "Si alguna de esas líneas sí publica paquetes para "*)
             local source_tail="${text#Si alguna de esas líneas sí publica paquetes para }"
             source_tail="${source_tail/, edítala a/; edit it manually from the Software Sources dialog.}"
@@ -253,7 +251,6 @@ declare -Ag MINT_DOCTOR_EN=(
     ['El subsistema de paquetes está sano.']='The package subsystem is healthy.'
     ['Repositorios de software (orígenes y claves GPG)']='Software repositories (sources and GPG keys)'
     ['Hay repositorios de terceros que aún apuntan al nombre en clave de una versión']='There are third-party repositories that still point to the codename of an earlier'
-    ['anterior de Mint/Ubuntu (esta es Mint 22.3 \']='Mint/Ubuntu release (this is Mint 22.3 \'
     ['Suele pasar con una PPA o repositorio de terceros añadido a mano en una versión de Mint']='This often happens with a PPA or third-party repository added manually on an earlier Mint release'
     ['anterior que nunca se actualizó. A veces '"'"'apt-get update'"'"' avisa con un error claro; otras']='that was never updated. Sometimes '"'"'apt-get update'"'"' reports a clear error; other times'
     ['veces el paquete simplemente deja de recibir actualizaciones sin ningún aviso visible.']='the package simply stops receiving updates without an obvious warning.'
@@ -1404,6 +1401,40 @@ comment_source_host() {
 # ======================================================================
 # MÓDULO 3: Repositorios de software (orígenes, claves GPG)
 # ======================================================================
+# Antigüedad de los nombres en clave de Mint/Ubuntu, como número comparable
+# dentro de su propia familia (0 = desconocido). Permite marcar una entrada de
+# orígenes como obsoleta solo si es anterior a la versión que se está
+# ejecutando, en vez de asumir una versión concreta del sistema.
+codename_version() {
+    case "$1" in
+        bionic) echo 1804 ;; focal) echo 2004 ;; jammy) echo 2204 ;; noble) echo 2404 ;;
+        tara) echo 1900 ;; tessa) echo 1901 ;; tina) echo 1902 ;; tricia) echo 1903 ;;
+        ulyana) echo 2000 ;; ulyssa) echo 2001 ;; uma) echo 2002 ;; una) echo 2003 ;;
+        vanessa) echo 2100 ;; vera) echo 2101 ;; victoria) echo 2102 ;; virginia) echo 2103 ;;
+        wilma) echo 2200 ;; xia) echo 2201 ;; zara) echo 2202 ;; zena) echo 2203 ;;
+        *) echo 0 ;;
+    esac
+}
+
+# Familia del nombre en clave: "ubuntu", "mint" o vacío si no se conoce.
+codename_family() {
+    case "$1" in
+        bionic|focal|jammy|noble) echo ubuntu ;;
+        tara|tessa|tina|tricia|ulyana|ulyssa|uma|una|vanessa|vera|victoria|virginia|wilma|xia|zara|zena) echo mint ;;
+        *) echo "" ;;
+    esac
+}
+
+# Cierto si el nombre en clave es anterior al actual, ambos de la misma
+# familia. Si el actual no se conoce no se marca nada: mejor no avisar que
+# avisar mal y desactivar un repositorio que sí funciona.
+codename_before() {
+    local v cur
+    v=$(codename_version "$1")
+    cur=$(codename_version "$2")
+    [[ "$v" -gt 0 && "$cur" -gt 0 && "$v" -lt "$cur" ]]
+}
+
 mod_repos() {
     section_header "Repositorios de software (orígenes y claves GPG)"
     local found_issue=0
@@ -1418,21 +1449,27 @@ mod_repos() {
     local ubuntu_codename mint_codename
     ubuntu_codename=$(grep -oP '(?<=^UBUNTU_CODENAME=).*' /etc/os-release 2>/dev/null | tr -d '"')
     mint_codename=$(grep -oP '(?<=^VERSION_CODENAME=).*' /etc/os-release 2>/dev/null | tr -d '"')
-    # Nombres en clave de Mint/Ubuntu anteriores a "zena"/"noble". Cualquiera
-    # de estos, como palabra completa, en un archivo de orígenes de terceros
-    # es casi con toda seguridad un resto de una versión anterior del sistema
-    # (se excluye aparte el propio repositorio oficial de Mint: ver más abajo).
-    local old_codenames=(bionic focal jammy tara tessa tina tricia ulyana
-                          ulyssa uma una vanessa vera victoria virginia
-                          wilma xia zara)
+    # Nombres en clave que sabemos ordenar. Solo se marca, como palabra
+    # completa, el que es anterior al de la familia correspondiente del
+    # sistema en uso: en Mint 21.3 "jammy" y "virginia" son los actuales y no
+    # un resto antiguo (se excluye aparte el repositorio oficial de Mint).
+    local known_codenames=(bionic focal jammy noble tara tessa tina tricia
+                           ulyana ulyssa uma una vanessa vera victoria virginia
+                           wilma xia zara zena)
     # No se corta en la primera coincidencia: un mismo archivo .sources puede
     # tener varios bloques con distintos nombres en clave antiguos, y si solo
     # se registrara el primero, el resto quedaría sin detectar ni comentar.
-    local src stale_repo_files=() cn
+    local src stale_repo_files=() cn cur_codename
     for src in /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do
         [[ -f "$src" ]] || continue
         [[ "$(basename "$src")" == "official-package-repositories.list" ]] && continue
-        for cn in "${old_codenames[@]}"; do
+        for cn in "${known_codenames[@]}"; do
+            case "$(codename_family "$cn")" in
+                ubuntu) cur_codename="$ubuntu_codename" ;;
+                mint) cur_codename="$mint_codename" ;;
+                *) continue ;;
+            esac
+            codename_before "$cn" "$cur_codename" || continue
             # Se ignoran las líneas ya comentadas: si no, una entrada que este
             # mismo script ya comentó en una ejecución anterior se seguiría
             # marcando como problema para siempre (nunca contaría como resuelta).
@@ -1444,7 +1481,7 @@ mod_repos() {
         found_issue=1
         register_issue
         msg_warn "Hay repositorios de terceros que aún apuntan al nombre en clave de una versión"
-        msg_warn "anterior de Mint/Ubuntu (esta es Mint 22.3 \"${mint_codename:-zena}\", base Ubuntu \"${ubuntu_codename:-noble}\"):"
+        msg_warn "anterior de Mint/Ubuntu (Mint \"${mint_codename:-?}\", base Ubuntu \"${ubuntu_codename:-?}\"):"
         local entry
         for entry in "${stale_repo_files[@]}"; do
             echo "      ${entry%%:*}  ($(t 'usa') \"${entry##*:}\")"
